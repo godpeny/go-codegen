@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/deepmap/oapi-codegen/pkg/util"
 	"github.com/godpeny/go-codegen/pkg/codegen"
@@ -27,14 +24,9 @@ var (
 )
 
 type configuration struct {
-	PackageName     string            `yaml:"package"`
-	GenerateTargets []string          `yaml:"generate"`
-	OutputFile      string            `yaml:"output"`
-	IncludeTags     []string          `yaml:"include-tags"`
-	ExcludeTags     []string          `yaml:"exclude-tags"`
-	TemplatesDir    string            `yaml:"templates"`
-	ImportMapping   map[string]string `yaml:"import-mapping"`
-	ExcludeSchemas  []string          `yaml:"exclude-schemas"`
+	PackageName     string   `yaml:"package"`
+	GenerateTargets []string `yaml:"generate"`
+	OutputFile      string   `yaml:"output"`
 }
 
 func main() {
@@ -51,6 +43,7 @@ func main() {
 	}
 
 	cfg := configFromFlags()
+	opts := codegen.Options{}
 
 	// If the package name has not been specified, we will use the name of the
 	// swagger file.

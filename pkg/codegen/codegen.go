@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -14,6 +13,17 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/codegen/templates"
 )
+
+// goImport represents a go package to be imported in the generated code
+type goImport struct {
+	Name string // package name
+	Path string // package path
+}
+
+// importMap maps external OpenAPI specifications files/urls to external go packages
+type importMap map[string]goImport
+
+var importMapping importMap
 
 // Options defines the optional code to generate.
 type Options struct {
@@ -44,7 +54,7 @@ func Generate(swagger *openapi3.Swagger, packageName string, opts Options) (stri
 
 	var typeDefinitions, constantDefinitions string
 	if opts.GenerateTypes {
-		typeDefinitions, err = GenerateTypeDefinitions(t, swagger, ops, opts.ExcludeSchemas)
+		typeDefinitions, err = GenerateTypeDefinitions(t, swagger, ops)
 		if err != nil {
 			return "", errors.Wrap(err, "error generating type definitions")
 		}
@@ -131,8 +141,8 @@ func Generate(swagger *openapi3.Swagger, packageName string, opts Options) (stri
 	return string(outBytes), nil
 }
 
-func GenerateTypeDefinitions(t *template.Template, swagger *openapi3.Swagger, ops []OperationDefinition, excludeSchemas []string) (string, error) {
-	schemaTypes, err := GenerateTypesForSchemas(t, swagger.Components.Schemas, excludeSchemas)
+func GenerateTypeDefinitions(t *template.Template, swagger *openapi3.Swagger, ops []OperationDefinition) (string, error) {
+	schemaTypes, err := GenerateTypesForSchemas(t, swagger.Components.Schemas)
 	if err != nil {
 		return "", errors.Wrap(err, "error generating Go types for component schemas")
 	}
@@ -209,17 +219,10 @@ func GenerateConstants(t *template.Template, ops []OperationDefinition) (string,
 
 // Generates type definitions for any custom types defined in the
 // components/schemas section of the Swagger spec.
-func GenerateTypesForSchemas(t *template.Template, schemas map[string]*openapi3.SchemaRef, excludeSchemas []string) ([]TypeDefinition, error) {
-	var excludeSchemasMap = make(map[string]bool)
-	for _, schema := range excludeSchemas {
-		excludeSchemasMap[schema] = true
-	}
+func GenerateTypesForSchemas(t *template.Template, schemas map[string]*openapi3.SchemaRef) ([]TypeDefinition, error) {
 	types := make([]TypeDefinition, 0)
 	// We're going to define Go types for every object under components/schemas
 	for _, schemaName := range SortedSchemaKeys(schemas) {
-		if _, ok := excludeSchemasMap[schemaName]; ok {
-			continue
-		}
 		schemaRef := schemas[schemaName]
 
 		goSchema, err := GenerateGoSchema(schemaRef, []string{schemaName})
